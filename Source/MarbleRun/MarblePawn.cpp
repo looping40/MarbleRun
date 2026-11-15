@@ -10,6 +10,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "InputCoreTypes.h"
 #include "Materials/MaterialInterface.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMarblePawn::AMarblePawn()
@@ -17,7 +18,7 @@ AMarblePawn::AMarblePawn()
 	PrimaryActorTick.bCanEverTick = true;
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultBallMaterial(TEXT("/Game/NewMaterial.NewMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultBallMaterial(TEXT("/Game/Materials/M_Ball.M_Ball"));
 
 	Ball = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ball"));
 	if (SphereMesh.Succeeded())
@@ -66,6 +67,19 @@ void AMarblePawn::BeginPlay()
 	{
 		MarbleColor::Apply(Ball, BallColor);
 	}
+
+	ApplyWeight();
+}
+
+void AMarblePawn::ApplyWeight()
+{
+	// Low bounce, good grip. "Min" combine keeps the bounce low whatever the marble hits.
+	MarblePhysMaterial = NewObject<UPhysicalMaterial>(this, TEXT("MarblePhysMaterial"));
+	MarblePhysMaterial->Restitution = Bounciness;
+	MarblePhysMaterial->bOverrideRestitutionCombineMode = true;
+	MarblePhysMaterial->RestitutionCombineMode = EFrictionCombineMode::Min;
+	MarblePhysMaterial->Friction = SurfaceFriction;
+	Ball->SetPhysMaterialOverride(MarblePhysMaterial);
 }
 
 FVector2D AMarblePawn::ReadMoveInput() const
@@ -132,9 +146,23 @@ void AMarblePawn::Tick(float DeltaSeconds)
 
 	const bool bBrakeHeld = bCanDrive && PC &&
 		(PC->IsInputKeyDown(EKeys::SpaceBar) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Bottom));
-	SetBraking(bBrakeHeld);
+	SetBraking(bBrakeHeld || bFinished);
 
-	PrevVelocity = Ball->GetPhysicsLinearVelocity();
+	// Extra gravity on the marble only (mass-independent, like world gravity).
+	if (!FMath::IsNearlyEqual(GravityScale, 1.f))
+	{
+		Ball->AddForce(FVector(0.f, 0.f, GetWorld()->GetGravityZ() * (GravityScale - 1.f)), NAME_None, /*bAccelChange*/ true);
+	}
+
+	// Hits may push the marble sideways but must not launch it like a balloon.
+	FVector Velocity = Ball->GetPhysicsLinearVelocity();
+	if (Velocity.Z > MaxUpwardSpeed)
+	{
+		Velocity.Z = MaxUpwardSpeed;
+		Ball->SetPhysicsLinearVelocity(Velocity);
+	}
+
+	PrevVelocity = Velocity;
 }
 
 void AMarblePawn::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved,
@@ -164,6 +192,7 @@ void AMarblePawn::ResetTo(const FVector& Location)
 	Ball->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 	PrevVelocity = FVector::ZeroVector;
 	RespawnGrace = 0.5f;
+	bFinished = false;
 }
 
 float AMarblePawn::GetSpeed() const

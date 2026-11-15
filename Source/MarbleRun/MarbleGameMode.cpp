@@ -137,7 +137,7 @@ void AMarbleGameMode::OnCheckpointReached(ACheckpoint* Checkpoint)
 	ShowMessage(FString::Printf(TEXT("CHECKPOINT  +%.0fs"), CheckpointBonus));
 }
 
-void AMarbleGameMode::OnGoalReached()
+void AMarbleGameMode::OnGoalReached(AMarblePawn* Marble)
 {
 	if (!IsPlaying())
 	{
@@ -145,12 +145,17 @@ void AMarbleGameMode::OnGoalReached()
 	}
 
 	State = EMarbleRunState::Won;
+	if (Marble)
+	{
+		Marble->SetFinished(true);
+	}
 	ShowMessage(FString::Printf(TEXT("FINISH!  %.2fs  -  press R"), Elapsed), 1.e6f);
 }
 
 void AMarbleGameMode::OnMarbleLost(AMarblePawn* Marble, const FString& Reason)
 {
-	if (!Marble)
+	// Once the run is won the marble stays where it ended up: no respawn, no penalty.
+	if (!Marble || State == EMarbleRunState::Won)
 	{
 		return;
 	}

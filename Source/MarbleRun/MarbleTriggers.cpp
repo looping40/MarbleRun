@@ -172,6 +172,6 @@ void AGoalZone::OnMarbleEnter(AMarblePawn* Marble)
 {
 	if (AMarbleGameMode* GM = GetMarbleGameMode())
 	{
-		GM->OnGoalReached();
+		GM->OnGoalReached(Marble);
 	}
 }

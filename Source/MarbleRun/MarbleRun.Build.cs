@@ -11,7 +11,8 @@ public class MarbleRun : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"InputCore"
+			"InputCore",
+			"PhysicsCore"
 		});
 	}
 }

@@ -30,7 +30,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 	void OnCheckpointReached(ACheckpoint* Checkpoint);
-	void OnGoalReached();
+	void OnGoalReached(AMarblePawn* Marble);
 	void OnMarbleLost(AMarblePawn* Marble, const FString& Reason);
 	void RestartRun();
 
